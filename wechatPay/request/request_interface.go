@@ -1,5 +1,10 @@
 package request
 
+var (
+    RequestDataXML = "XML"
+    RequestDataJSON = "JSON"
+)
+
 type Requester interface {
     GetApiUrl() string
     GetNotifyUrl() string
@@ -7,4 +12,5 @@ type Requester interface {
     GetSignType() string
     GetClientIp() string
     GetParams() Requester
+    GetRequestDataType() string
 }

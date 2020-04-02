@@ -158,22 +158,18 @@ func (w *WechatPayClient) genReqData(req request.Requester) map[string]interface
 
 func (w *WechatPayClient) pkcs12ToPem() tls.Certificate {
     blocks, err := pkcs12.ToPEM(w.CertData, w.MchId)
-    
     defer func() {
         if x := recover(); x != nil {
             log.Print(x)
         }
     }()
-    
     if err != nil {
         panic(err)
     }
-    
     var pemData []byte
     for _, b := range blocks {
         pemData = append(pemData, pem.EncodeToMemory(b)...)
     }
-    
     cert, err := tls.X509KeyPair(pemData, pemData)
     if err != nil {
         panic(err)
@@ -181,10 +177,19 @@ func (w *WechatPayClient) pkcs12ToPem() tls.Certificate {
     return cert
 }
 
+func (w *WechatPayClient) getRequestData(req request.Requester) interface{} {
+    switch req.GetRequestDataType() {
+    case request.RequestDataXML:
+        return w.toXml(req)
+    case request.RequestDataJSON:
+    }
+    
+    return nil
+}
+
 func (w *WechatPayClient) ExecuteWithCert(req request.Requester, method string) (Response, error) {
-    xmlStr := w.toXml(req)
-    fmt.Println(xmlStr)
-    buf := strings.NewReader(xmlStr)
+    xmlStr := w.getRequestData(req)
+    buf := strings.NewReader(xmlStr.(string))
     cert := w.pkcs12ToPem()
     config := &tls.Config{
         Certificates: []tls.Certificate{cert},
@@ -193,7 +198,6 @@ func (w *WechatPayClient) ExecuteWithCert(req request.Requester, method string) 
         TLSClientConfig:    config,
         DisableCompression: true,
     }
-    fmt.Println(transport)
     h := &http.Client{Transport: transport}
     resp, err := h.Post(req.GetApiUrl(), "application/xml; charset=utf-8", buf)
     fmt.Println(resp, err)
@@ -219,9 +223,9 @@ func (w *WechatPayClient) ExecuteWithCert(req request.Requester, method string) 
 }
 
 func (w *WechatPayClient) Execute(req request.Requester, method string) (Response, error) {
-    xmlStr := w.toXml(req)
+    xmlStr := w.getRequestData(req)
     fmt.Println(xmlStr)
-    buf := strings.NewReader(xmlStr)
+    buf := strings.NewReader(xmlStr.(string))
     reqes, err := http.NewRequest(method, req.GetApiUrl(), buf)
     if err != nil {
         return "", err

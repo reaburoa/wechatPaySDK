@@ -1,1 +1,1 @@
-# wechatPaySDK# wechatPaySDK
+# wechatPaySDK
