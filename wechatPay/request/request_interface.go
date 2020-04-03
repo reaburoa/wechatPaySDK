@@ -9,7 +9,7 @@ type Requester interface {
     GetApiUrl() string
     GetNotifyUrl() string
     SetNotifyUrl(url string)
-    GetSignType() string
+    SetClientIp(str string)
     GetClientIp() string
     GetParams() Requester
     GetRequestDataType() string

@@ -19,20 +19,20 @@ func (w *WechatPaySecapiPayRefund) GetApiUrl() string {
     return "https://api.mch.weixin.qq.com/secapi/pay/refund"
 }
 
-func (w *WechatPaySecapiPayRefund) SetNotifyUrl(str string) {
-
+func (w *WechatPaySecapiPayRefund) SetNotifyUrl(url string) {
+    w.NotifyUrl = url
 }
 
 func (w *WechatPaySecapiPayRefund) GetNotifyUrl() string {
-    return ""
+    return w.NotifyUrl
 }
 
-func (w *WechatPaySecapiPayRefund) GetSignType() string {
-    return "MD5"
+func (w *WechatPaySecapiPayRefund) SetClientIp(str string) {
+
 }
 
 func (w *WechatPaySecapiPayRefund) GetClientIp() string {
-    return "127.0.0.1"
+    return ""
 }
 
 func (w *WechatPaySecapiPayRefund) GetParams() Requester {

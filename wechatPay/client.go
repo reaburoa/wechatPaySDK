@@ -3,6 +3,7 @@ package wechatPay
 import (
     "crypto/tls"
     "encoding/pem"
+    "errors"
     "fmt"
     "github.com/reaburoa/elec-signature/signature"
     "github.com/reaburoa/wechatPaySDK/wechatPay/request"
@@ -11,16 +12,14 @@ import (
     "log"
     "math/rand"
     "net/http"
-    "net/url"
-    "reflect"
     "sort"
-    "strconv"
     "strings"
     "time"
 )
 
 var (
     signTypeMd5    = "MD5"
+    signTypeHmac   = "HMAC"
     signTypeRSA2   = "RSA2"
     nonceStrLength = 16
 )
@@ -30,11 +29,12 @@ type WechatPayClient struct {
     MchId     string
     SecretKey string
     AppSecret string
+    SignType  string
     CertData  []byte
     Client    *http.Client
 }
 
-func NewClient(appId, mchId, secretKey, cert, appSecret string) *WechatPayClient {
+func NewClient(appId, mchId, secretKey, cert, appSecret, signType string) *WechatPayClient {
     certData, err := ioutil.ReadFile(cert)
     if err != nil {
         panic("Cert File Error")
@@ -45,6 +45,7 @@ func NewClient(appId, mchId, secretKey, cert, appSecret string) *WechatPayClient
         SecretKey: secretKey,
         AppSecret: appSecret,
         CertData:  certData,
+        SignType:  signType,
         Client:    http.DefaultClient,
     }
 }
@@ -56,27 +57,6 @@ func (w *WechatPayClient) sortContentByKeys(data map[string]interface{}) []strin
     }
     sort.Strings(keys)
     return keys
-}
-
-func (w *WechatPayClient) number2String(number interface{}) string {
-    kStr := reflect.TypeOf(number).Kind()
-    switch kStr {
-    case reflect.Int64:
-        number = strconv.FormatInt(number.(int64), 10)
-    case reflect.Int32:
-        number = strconv.FormatInt(number.(int64), 10)
-    case reflect.Int:
-        number = strconv.Itoa(number.(int))
-    case reflect.Float64:
-        number = strconv.FormatFloat(number.(float64), 'f', -1, 64)
-    case reflect.Float32:
-        number = strconv.FormatFloat(number.(float64), 'f', -1, 64)
-    case reflect.String:
-    default:
-        number = ""
-    }
-    
-    return number.(string)
 }
 
 func (w *WechatPayClient) genSignContent(data map[string]interface{}) string {
@@ -115,14 +95,27 @@ func (w *WechatPayClient) genSignByMd5(data string) string {
     return strings.ToUpper(signature.Md5(str))
 }
 
-func (w *WechatPayClient) formatUrlValue(data map[string]interface{}) url.Values {
-    var formData = make(url.Values)
-    for key, val := range data {
-        val = w.number2String(val)
-        formData.Set(key, val.(string))
+func (w *WechatPayClient) gentSignByHmacSHA256(data string) string {
+    str := fmt.Sprintf("%s&key=%s", data, w.SecretKey)
+    return strings.ToUpper(signature.Sha256(str, ""))
+}
+
+func (w *WechatPayClient) checkSign(req request.Requester, resp Response) bool {
+    mm, err := w.getResponseMap(req, resp)
+    if err != nil {
+        return false
     }
-    
-    return formData
+    sign := mm["sign"]
+    delete(mm, "sign")
+    str := w.genSignContent(mm)
+    toSign := ""
+    switch w.SignType {
+    case signTypeMd5:
+        toSign = w.genSignByMd5(str)
+    case signTypeHmac:
+        toSign = w.gentSignByHmacSHA256(str)
+    }
+    return toSign == sign
 }
 
 func (w *WechatPayClient) toXml(req request.Requester) string {
@@ -147,9 +140,11 @@ func (w *WechatPayClient) genReqData(req request.Requester) map[string]interface
         Requester: req,
     }
     clientMap := commonReq.toMap()
-    signType := req.GetSignType()
-    if signType == signTypeMd5 {
+    switch w.SignType {
+    case signTypeMd5:
         commonReq.Sign = w.genSignByMd5(w.genSignContent(clientMap))
+    case signTypeHmac:
+        commonReq.Sign = w.gentSignByHmacSHA256(w.genSignContent(clientMap))
     }
     clientMap["sign"] = commonReq.Sign
     
@@ -187,6 +182,17 @@ func (w *WechatPayClient) getRequestData(req request.Requester) interface{} {
     return nil
 }
 
+func (w *WechatPayClient) getResponseMap(req request.Requester, resp Response) (map[string]interface{}, error) {
+    switch req.GetRequestDataType() {
+    case request.RequestDataXML:
+        return resp.XmlToMap()
+    case request.RequestDataJSON:
+        return resp.JsonToMap()
+    }
+    
+    return nil, nil
+}
+
 func (w *WechatPayClient) ExecuteWithCert(req request.Requester, method string) (Response, error) {
     xmlStr := w.getRequestData(req)
     buf := strings.NewReader(xmlStr.(string))
@@ -200,7 +206,6 @@ func (w *WechatPayClient) ExecuteWithCert(req request.Requester, method string) 
     }
     h := &http.Client{Transport: transport}
     resp, err := h.Post(req.GetApiUrl(), "application/xml; charset=utf-8", buf)
-    fmt.Println(resp, err)
     if err != nil {
         return "", err
     }
@@ -209,22 +214,15 @@ func (w *WechatPayClient) ExecuteWithCert(req request.Requester, method string) 
     if err != nil {
         return "", err
     }
-    /*parsedBody, err := w.parseBody(body, req)
-      if err != nil {
-          return "", err
-      }
-      if parsedBody["sign"] != "" {
-          checkRet := w.checkSign(parsedBody["sign_data"], parsedBody["sign"], a.SignType)
-          if checkRet != true {
-              return "", errors.New("Check Sign Error")
-          }
-      }*/
+    checkRet := w.checkSign(req, Response(body))
+    if checkRet != true {
+        return "", errors.New("Check Sign Error")
+    }
     return Response(body), nil
 }
 
 func (w *WechatPayClient) Execute(req request.Requester, method string) (Response, error) {
     xmlStr := w.getRequestData(req)
-    fmt.Println(xmlStr)
     buf := strings.NewReader(xmlStr.(string))
     reqes, err := http.NewRequest(method, req.GetApiUrl(), buf)
     if err != nil {
@@ -239,46 +237,10 @@ func (w *WechatPayClient) Execute(req request.Requester, method string) (Respons
     if err != nil {
         return "", err
     }
-    /*parsedBody, err := w.parseBody(body, req)
-      if err != nil {
-          return "", err
-      }
-      if parsedBody["sign"] != "" {
-          checkRet := w.checkSign(parsedBody["sign_data"], parsedBody["sign"], a.SignType)
-          if checkRet != true {
-              return "", errors.New("Check Sign Error")
-          }
-      }*/
+    checkRet := w.checkSign(req, Response(body))
+    if checkRet != true {
+        return "", errors.New("Check Sign Error")
+    }
+    
     return Response(body), nil
 }
-
-/*func (w *WechatPayClient) parseBody(body []byte, req request.Requester) (map[string]string, error) {
-    bodyStr := string(body)
-    responseReg := a.methodNameToResponseName(req)
-    if strings.Index(bodyStr, errResponse) > -1 {
-        responseReg = errResponse
-    }
-    mapResp := make(map[string]interface{})
-    err := json.Unmarshal(body, &mapResp)
-    if err != nil {
-        return nil, err
-    }
-    reg, sign := "", ""
-    if strings.Index(bodyStr, signTag) == -1 {
-        reg = "{\"" + responseReg + `":\s?{(.*)}`
-    } else {
-        reg = "{\"" + responseReg + `":\s?{(.*)},`
-        sign = mapResp["sign"].(string)
-    }
-    re, err := regexp.Compile(reg)
-    if err != nil {
-        return nil, err
-    }
-    toVerifyStr := re.FindString(bodyStr)
-    start := len("{\"" + responseReg + "\":")
-    end := len(toVerifyStr) - 1
-    return map[string]string{
-        "sign_data": strings.Trim(string(toVerifyStr[start:end]), ""),
-        "sign":      sign,
-    }, nil
-}*/

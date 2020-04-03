@@ -19,12 +19,12 @@ func (w *WechatPayOrderQuery) GetNotifyUrl() string {
     return ""
 }
 
-func (w *WechatPayOrderQuery) GetSignType() string {
-    return "MD5"
+func (w *WechatPayOrderQuery) SetClientIp(str string) {
+
 }
 
 func (w *WechatPayOrderQuery) GetClientIp() string {
-    return "127.0.0.1"
+    return ""
 }
 
 func (w *WechatPayOrderQuery) GetParams() Requester {

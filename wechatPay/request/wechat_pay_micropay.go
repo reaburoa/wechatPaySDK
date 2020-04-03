@@ -39,12 +39,12 @@ func (w *WechatPayMicropay) GetNotifyUrl() string {
     return ""
 }
 
-func (w *WechatPayMicropay) GetSignType() string {
-    return "MD5"
+func (w *WechatPayMicropay) SetClientIp(str string) {
+    w.SpbillCreateIp = str
 }
 
 func (w *WechatPayMicropay) GetClientIp() string {
-    return "127.0.0.1"
+    return w.SpbillCreateIp
 }
 
 func (w *WechatPayMicropay) GetParams() Requester {
