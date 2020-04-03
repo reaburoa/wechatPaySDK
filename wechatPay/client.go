@@ -2,6 +2,7 @@ package wechatPay
 
 import (
     "crypto/tls"
+    "encoding/json"
     "encoding/pem"
     "errors"
     "fmt"
@@ -19,8 +20,7 @@ import (
 
 var (
     signTypeMd5    = "MD5"
-    signTypeHmac   = "HMAC"
-    signTypeRSA2   = "RSA2"
+    signTypeHmac   = "HMAC-SHA256"
     nonceStrLength = 16
 )
 
@@ -97,7 +97,7 @@ func (w *WechatPayClient) genSignByMd5(data string) string {
 
 func (w *WechatPayClient) gentSignByHmacSHA256(data string) string {
     str := fmt.Sprintf("%s&key=%s", data, w.SecretKey)
-    return strings.ToUpper(signature.Sha256(str, ""))
+    return strings.ToUpper(signature.Hmac(str, w.SecretKey, "SHA-256"))
 }
 
 func (w *WechatPayClient) checkSign(req request.Requester, resp Response) bool {
@@ -132,6 +132,15 @@ func (w *WechatPayClient) toXml(req request.Requester) string {
     return strings.Join(xml, "")
 }
 
+func (w *WechatPayClient) toJson(req request.Requester) string {
+    reqMap := w.genReqData(req)
+    bt, err := json.Marshal(reqMap)
+    if err != nil {
+        return ""
+    }
+    return string(bt)
+}
+
 func (w *WechatPayClient) genReqData(req request.Requester) map[string]interface{} {
     commonReq := CommonRequest{
         AppId:     w.AppId,
@@ -140,6 +149,11 @@ func (w *WechatPayClient) genReqData(req request.Requester) map[string]interface
         Requester: req,
     }
     clientMap := commonReq.toMap()
+    if req.GetSignType() == "" {
+        w.SignType = signTypeMd5
+    } else {
+        w.SignType = req.GetSignType()
+    }
     switch w.SignType {
     case signTypeMd5:
         commonReq.Sign = w.genSignByMd5(w.genSignContent(clientMap))
@@ -147,7 +161,6 @@ func (w *WechatPayClient) genReqData(req request.Requester) map[string]interface
         commonReq.Sign = w.gentSignByHmacSHA256(w.genSignContent(clientMap))
     }
     clientMap["sign"] = commonReq.Sign
-    
     return clientMap
 }
 
@@ -177,6 +190,7 @@ func (w *WechatPayClient) getRequestData(req request.Requester) interface{} {
     case request.RequestDataXML:
         return w.toXml(req)
     case request.RequestDataJSON:
+        return w.toJson(req)
     }
     
     return nil

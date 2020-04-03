@@ -42,3 +42,11 @@ func (w *WechatPaySecapiPayRefund) GetParams() Requester {
 func (w *WechatPaySecapiPayRefund) GetRequestDataType() string {
     return RequestDataXML
 }
+
+func (w *WechatPaySecapiPayRefund) GetSignType() string {
+    return w.SignType
+}
+
+func (w *WechatPaySecapiPayRefund) SetSignType(signType string) {
+    w.SignType = signType
+}

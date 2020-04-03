@@ -13,4 +13,6 @@ type Requester interface {
     GetClientIp() string
     GetParams() Requester
     GetRequestDataType() string
+    SetSignType(signType string)
+    GetSignType() string
 }

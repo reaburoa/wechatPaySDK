@@ -37,3 +37,11 @@ func (w *WechatPayRefundQuery) GetParams() Requester {
 func (w *WechatPayRefundQuery) GetRequestDataType() string {
     return RequestDataXML
 }
+
+func (w *WechatPayRefundQuery) GetSignType() string {
+    return "MD5"
+}
+
+func (w *WechatPayRefundQuery) SetSignType(signType string) {
+
+}

@@ -54,3 +54,11 @@ func (w *WechatPayMicropay) GetParams() Requester {
 func (w *WechatPayMicropay) GetRequestDataType() string {
     return RequestDataXML
 }
+
+func (w *WechatPayMicropay) GetSignType() string {
+    return "MD5"
+}
+
+func (w *WechatPayMicropay) SetSignType(signType string) {
+
+}

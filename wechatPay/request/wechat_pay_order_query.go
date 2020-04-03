@@ -34,3 +34,11 @@ func (w *WechatPayOrderQuery) GetParams() Requester {
 func (w *WechatPayOrderQuery) GetRequestDataType() string {
     return RequestDataXML
 }
+
+func (w *WechatPayOrderQuery) GetSignType() string {
+    return "MD5"
+}
+
+func (w *WechatPayOrderQuery) SetSignType(signType string) {
+
+}
