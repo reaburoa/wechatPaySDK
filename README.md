@@ -3,7 +3,7 @@
 
 ### 安装
 ```
-go get -u github.com/reaburoa/wechatSDK
+go get -u github.com/reaburoa/wechatPaySDK
 ```
 
 ### 使用
